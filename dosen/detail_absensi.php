@@ -24,6 +24,9 @@ if (!isset($_GET['id'])) {
     exit();
 }
 
+// Periksa dan tutup sesi yang sudah melewati waktu tutup
+periksa_sesi_kadaluarsa($koneksi);
+
 $id_sesi = bersihkan_input($_GET['id']);
 
 // Ambil data sesi absensi

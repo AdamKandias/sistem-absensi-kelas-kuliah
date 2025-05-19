@@ -147,6 +147,22 @@ function status_kehadiran($status)
     }
 }
 
+// Fungsi untuk memeriksa dan menutup sesi yang sudah melewati waktu tutup
+function periksa_sesi_kadaluarsa($koneksi)
+{
+    // Update status sesi yang sudah melewati waktu_tutup
+    $query = "
+        UPDATE sesi_absensi 
+        SET status = 'ditutup' 
+        WHERE status = 'dibuka' AND waktu_tutup IS NOT NULL AND waktu_tutup <= NOW()
+    ";
+
+    $koneksi->query($query);
+
+    // Return jumlah sesi yang diperbarui (opsional)
+    return $koneksi->affected_rows;
+}
+
 require_once __DIR__ . '/../library/fpdf/fpdf.php';
 
 // Fungsi untuk menghasilkan PDF

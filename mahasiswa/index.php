@@ -10,6 +10,9 @@ $stmt_jurusan->execute();
 $result_jurusan = $stmt_jurusan->get_result();
 $jurusan = $result_jurusan->fetch_assoc();
 
+// Periksa dan tutup sesi yang sudah melewati waktu tutup
+periksa_sesi_kadaluarsa($koneksi);
+
 // Ambil kelas yang diikuti oleh mahasiswa
 $query_kelas = "
     SELECT k.*, mk.nama as nama_matkul, d.nama as nama_dosen

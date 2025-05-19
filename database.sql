@@ -80,6 +80,7 @@ CREATE TABLE sesi_absensi (
     tanggal DATE NOT NULL,
     materi TEXT NOT NULL,
     status ENUM('dibuka', 'ditutup') NOT NULL DEFAULT 'dibuka',
+    waktu_tutup DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (id_kelas) REFERENCES kelas(id) ON DELETE CASCADE

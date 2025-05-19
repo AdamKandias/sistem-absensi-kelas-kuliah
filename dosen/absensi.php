@@ -8,6 +8,9 @@ require_once '../config/fungsi.php';
 // Cek apakah user adalah dosen
 cek_dosen();
 
+// Periksa dan tutup sesi yang sudah melewati waktu tutup
+periksa_sesi_kadaluarsa($koneksi);
+
 // Ambil data dosen
 $id_dosen = $_SESSION['user_id'];
 $query_dosen = "SELECT * FROM dosen WHERE id = (SELECT id_referensi FROM pengguna WHERE id = ?)";

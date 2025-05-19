@@ -18,6 +18,9 @@ $result_mahasiswa = $stmt_mahasiswa->get_result();
 $mahasiswa = $result_mahasiswa->fetch_assoc();
 $id_mahasiswa_asli = $mahasiswa['id'];
 
+// Periksa dan tutup sesi yang sudah melewati waktu tutup
+periksa_sesi_kadaluarsa($koneksi);
+
 // Filter berdasarkan tanggal
 $tanggal_filter = isset($_GET['tanggal']) ? bersihkan_input($_GET['tanggal']) : '';
 

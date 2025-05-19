@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Jakarta');
 $judul_halaman = "Dashboard Mahasiswa";
 require_once '../includes/header_mahasiswa.php';
 

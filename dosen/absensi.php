@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Jakarta');
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 };
@@ -42,16 +43,18 @@ if (isset($_POST['buka_absensi'])) {
     if ($result_cek->num_rows > 0) {
         $pesan_error = "Sesi absensi untuk pertemuan ini sudah pernah dibuka!";
     } else {
+        // Hitung waktu tutup otomatis
+        $waktu_sekarang = date('Y-m-d H:i:s');
+        $waktu_tutup = date('Y-m-d H:i:s', strtotime("+{$durasi} hours"));
+
         // Buka sesi absensi baru
         $status = 'dibuka';
-        $waktu_tutup = time() + ($durasi * 3600); // Konversi jam ke detik
-
         $query = "INSERT INTO sesi_absensi (id_kelas, pertemuan, tanggal, materi, status, waktu_tutup) VALUES (?, ?, ?, ?, ?, ?)";
         $stmt = $koneksi->prepare($query);
-        $stmt->bind_param("iisssi", $id_kelas, $pertemuan, $tanggal, $materi, $status, $waktu_tutup);
+        $stmt->bind_param("iissss", $id_kelas, $pertemuan, $tanggal, $materi, $status, $waktu_tutup);
 
         if ($stmt->execute()) {
-            $pesan_sukses = "Sesi absensi berhasil dibuka! Akan otomatis ditutup setelah $durasi jam.";
+            $pesan_sukses = "Sesi absensi berhasil dibuka! Sesi akan otomatis ditutup pada " . date('d-m-Y H:i', strtotime($waktu_tutup));
         } else {
             $pesan_error = "Gagal membuka sesi absensi: " . $koneksi->error;
         }
@@ -268,7 +271,7 @@ $result_sesi = $stmt_sesi->get_result();
 
                                 // Tampilkan countdown jika ada waktu tutup
                                 if (isset($row['waktu_tutup']) && $row['waktu_tutup'] > time()) {
-                                    $remaining = $row['waktu_tutup'] - time();
+                                    $remaining = strtotime($row['waktu_tutup']) - time();
                                     echo '<div class="countdown-container" data-auto-close data-close-time="' . $row['waktu_tutup'] . '" data-sesi-id="' . $row['id'] . '">';
                                     echo '<span class="countdown">' . gmdate("H:i:s", $remaining) . '</span>';
                                     echo '</div>';

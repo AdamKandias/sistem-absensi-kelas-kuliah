@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Jakarta');
 // Fungsi untuk membersihkan input
 function bersihkan_input($data)
 {

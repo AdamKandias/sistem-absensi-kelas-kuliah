@@ -15,4 +15,3 @@ if ($koneksi->connect_error) {
 
 // Set charset ke utf8
 $koneksi->set_charset("utf8");
-?>

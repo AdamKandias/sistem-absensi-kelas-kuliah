@@ -18,8 +18,6 @@ $id_kelas = bersihkan_input($_GET['id']);
 $query_kelas = "
     SELECT k.*, j.nama as nama_jurusan, mk.nama as nama_matkul, d.nama as nama_dosen
     FROM kelas k
-    JOIN jurusan j ON k.id_juru  mk.nama as nama_matkul, d.nama as nama_dosen
-    FROM kelas k
     JOIN jurusan j ON k.id_jurusan = j.id
     JOIN mata_kuliah mk ON k.id_matkul = mk.id
     JOIN dosen d ON k.id_dosen = d.id

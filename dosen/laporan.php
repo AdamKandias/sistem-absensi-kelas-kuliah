@@ -1,9 +1,8 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-};
+session_start();
 require_once '../config/koneksi.php';
 require_once '../config/fungsi.php';
+require_once __DIR__ . '/../library/fpdf/fpdf.php';
 
 // Cek apakah user adalah dosen
 cek_dosen();
@@ -142,93 +141,222 @@ if ($id_kelas) {
     }
 }
 
-// Proses export ke PDF
+// Ubah bagian proses export ke PDF
 if (isset($_GET['export']) && $_GET['export'] == 'pdf' && $id_kelas) {
-    // Buat konten HTML untuk PDF
-    $html = '
-    <html>
-    <head>
-        <title>Laporan Kehadiran Kelas</title>
-        <style>
-            body { font-family: Arial, sans-serif; }
-            h1 { text-align: center; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; }
-            .text-center { text-align: center; }
-            .header { margin-bottom: 20px; }
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>Laporan Kehadiran Mahasiswa</h1>
-            <table>
-                <tr>
-                    <th>Kelas</th>
-                    <td>' . $info_kelas['nama'] . '</td>
-                    <th>Mata Kuliah</th>
-                    <td>' . $info_kelas['nama_matkul'] . '</td>
-                </tr>
-                <tr>
-                    <th>Jurusan</th>
-                    <td>' . $info_kelas['nama_jurusan'] . '</td>
-                    <th>Tahun Ajaran</th>
-                    <td>' . $info_kelas['tahun_ajaran'] . ' - ' . $info_kelas['semester'] . '</td>
-                </tr>
-                <tr>
-                    <th>Dosen</th>
-                    <td colspan="3">' . $dosen['nama'] . '</td>
-                </tr>
-            </table>
-        </div>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th>No</th>
-                    <th>NIM</th>
-                    <th>Nama</th>
-                    <th>Kelas</th>
-                    <th>Hadir</th>
-                    <th>Izin</th>
-                    <th>Sakit</th>
-                    <th>Alpa</th>
-                    <th>Persentase</th>
-                </tr>
-            </thead>
-            <tbody>';
+    // Fungsi untuk menghasilkan PDF
+    function generate_pdf($html, $filename)
+    {
+        global $info_kelas, $dosen, $result_mahasiswa, $statistik_mahasiswa, $result_sesi;
 
-    $no = 1;
-    $result_mahasiswa->data_seek(0); // Reset pointer
-    while ($mahasiswa = $result_mahasiswa->fetch_assoc()) {
-        $id_mahasiswa = $mahasiswa['id'];
-        $html .= '
-                <tr>
-                    <td>' . $no++ . '</td>
-                    <td>' . $mahasiswa['nim'] . '</td>
-                    <td>' . $mahasiswa['nama'] . '</td>
-                    <td>' . $mahasiswa['kelas_angkatan'] . '</td>
-                    <td class="text-center">' . $statistik_mahasiswa[$id_mahasiswa]['hadir'] . '</td>
-                    <td class="text-center">' . $statistik_mahasiswa[$id_mahasiswa]['izin'] . '</td>
-                    <td class="text-center">' . $statistik_mahasiswa[$id_mahasiswa]['sakit'] . '</td>
-                    <td class="text-center">' . $statistik_mahasiswa[$id_mahasiswa]['alpa'] . '</td>
-                    <td class="text-center">' . number_format($statistik_mahasiswa[$id_mahasiswa]['persentase'], 2) . '%</td>
-                </tr>';
+        // Buat class PDF dengan header dan footer
+        class PDF extends FPDF
+        {
+            // Header halaman
+            function Header()
+            {
+                // Logo (jika ada)
+                // $this->Image('logo.png', 10, 6, 30);
+
+                // Judul institusi
+                $this->SetFont('Arial', 'B', 14);
+                $this->Cell(0, 10, 'Kampus PENS', 0, 1, 'C');
+                $this->SetFont('Arial', '', 12);
+                $this->Cell(0, 6, 'FAKULTAS ILMU KOMPUTER', 0, 1, 'C');
+                $this->Cell(0, 6, 'Jl. Pendidikan No. 123, Kota Surabaya, 12345', 0, 1, 'C');
+                $this->Cell(0, 6, 'Telp. (021) 123-4567 | Email: info@pens.ac.id', 0, 1, 'C');
+
+                // Garis pembatas
+                $this->SetLineWidth(0.5);
+                $this->Line(10, 38, 200, 38);
+                $this->SetLineWidth(0.2);
+                $this->Line(10, 39, 200, 39);
+
+                // Spasi setelah header
+                $this->Ln(10);
+            }
+
+            // Footer halaman
+            function Footer()
+            {
+                // Posisi 1.5 cm dari bawah
+                $this->SetY(-15);
+
+                // Garis pembatas
+                $this->SetLineWidth(0.2);
+                $this->Line(10, $this->GetY(), 200, $this->GetY());
+
+                // Arial italic 8
+                $this->SetFont('Arial', 'I', 8);
+
+                // Nomor halaman
+                $this->Cell(0, 10, 'Halaman ' . $this->PageNo() . '/{nb}', 0, 0, 'C');
+            }
+        }
+
+        // Inisialisasi PDF
+        $pdf = new PDF();
+        $pdf->AliasNbPages(); // Untuk mendapatkan total halaman
+        $pdf->AddPage();
+
+        // Judul dokumen
+        $pdf->SetFont('Arial', 'B', 16);
+        $pdf->Cell(0, 10, 'LAPORAN KEHADIRAN MAHASISWA', 0, 1, 'C');
+
+        // Nomor dokumen
+        $pdf->SetFont('Arial', 'I', 10);
+        $pdf->Cell(0, 6, 'No. Dokumen: REG/' . date('Ymd') . '/' . rand(1000, 9999), 0, 1, 'C');
+
+        // Spasi
+        $pdf->Ln(5);
+
+        // Informasi kelas
+        $pdf->SetFont('Arial', 'B', 12);
+        $pdf->Cell(0, 8, 'INFORMASI KELAS', 0, 1, 'L');
+        $pdf->SetFont('Arial', '', 11);
+
+        // Tabel info kelas dengan warna latar
+        $pdf->SetFillColor(240, 240, 240);
+        $pdf->Cell(40, 8, 'Kelas', 1, 0, 'L', true);
+        $pdf->Cell(60, 8, $info_kelas['nama'], 1, 0, 'L');
+        $pdf->Cell(40, 8, 'Mata Kuliah', 1, 0, 'L', true);
+        $pdf->Cell(50, 8, $info_kelas['nama_matkul'], 1, 1, 'L');
+
+        $pdf->Cell(40, 8, 'Jurusan', 1, 0, 'L', true);
+        $pdf->Cell(60, 8, $info_kelas['nama_jurusan'], 1, 0, 'L');
+        $pdf->Cell(40, 8, 'Tahun Ajaran', 1, 0, 'L', true);
+        $pdf->Cell(50, 8, $info_kelas['tahun_ajaran'] . ' - ' . $info_kelas['semester'], 1, 1, 'L');
+
+        $pdf->Cell(40, 8, 'Dosen', 1, 0, 'L', true);
+        $pdf->Cell(150, 8, $dosen['nama'], 1, 1, 'L');
+
+        // Spasi
+        $pdf->Ln(5);
+
+        // Judul tabel rekap
+        $pdf->SetFont('Arial', 'B', 12);
+        $pdf->Cell(0, 8, 'REKAP KEHADIRAN MAHASISWA', 0, 1, 'L');
+
+        // Header tabel rekap dengan warna latar
+        $pdf->SetFont('Arial', 'B', 10);
+        $pdf->SetFillColor(50, 50, 150);
+        $pdf->SetTextColor(255, 255, 255);
+
+        $header = ['No', 'NIM', 'Nama', 'Kelas', 'Hadir', 'Izin', 'Sakit', 'Alpa', 'Persentase'];
+        $widths = [10, 25, 50, 20, 15, 15, 15, 15, 25];
+
+        foreach ($header as $i => $col) {
+            $pdf->Cell($widths[$i], 8, $col, 1, 0, 'C', true);
+        }
+        $pdf->Ln();
+
+        // Data mahasiswa
+        $pdf->SetFont('Arial', '', 10);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->SetFillColor(245, 245, 245);
+
+        $no = 1;
+        $result_mahasiswa->data_seek(0); // reset pointer
+        $fill = false;
+
+        while ($mahasiswa = $result_mahasiswa->fetch_assoc()) {
+            $id = $mahasiswa['id'];
+            $pdf->Cell($widths[0], 7, $no++, 1, 0, 'C', $fill);
+            $pdf->Cell($widths[1], 7, $mahasiswa['nim'], 1, 0, 'L', $fill);
+            $pdf->Cell($widths[2], 7, $mahasiswa['nama'], 1, 0, 'L', $fill);
+            $pdf->Cell($widths[3], 7, $mahasiswa['kelas_angkatan'], 1, 0, 'C', $fill);
+            $pdf->Cell($widths[4], 7, $statistik_mahasiswa[$id]['hadir'], 1, 0, 'C', $fill);
+            $pdf->Cell($widths[5], 7, $statistik_mahasiswa[$id]['izin'], 1, 0, 'C', $fill);
+            $pdf->Cell($widths[6], 7, $statistik_mahasiswa[$id]['sakit'], 1, 0, 'C', $fill);
+            $pdf->Cell($widths[7], 7, $statistik_mahasiswa[$id]['alpa'], 1, 0, 'C', $fill);
+
+            // Warna untuk persentase kehadiran
+            $persentase = $statistik_mahasiswa[$id]['persentase'];
+            if ($persentase >= 80) {
+                $pdf->SetTextColor(0, 128, 0); // Hijau untuk kehadiran baik
+            } elseif ($persentase >= 60) {
+                $pdf->SetTextColor(255, 128, 0); // Oranye untuk kehadiran cukup
+            } else {
+                $pdf->SetTextColor(255, 0, 0); // Merah untuk kehadiran kurang
+            }
+
+            $pdf->Cell($widths[8], 7, number_format($persentase, 2) . '%', 1, 0, 'C', $fill);
+            $pdf->SetTextColor(0, 0, 0); // Kembalikan warna teks
+
+            $pdf->Ln();
+            $fill = !$fill; // Alternasi warna baris
+        }
+
+        // Ringkasan statistik
+        $pdf->Ln(10);
+        $pdf->SetFont('Arial', 'B', 12);
+        $pdf->Cell(0, 8, 'RINGKASAN STATISTIK', 0, 1, 'L');
+        $pdf->SetFont('Arial', '', 11);
+
+        // Hitung total
+        $total_mahasiswa = $result_mahasiswa->num_rows;
+        $hadir_baik = 0;
+        $hadir_cukup = 0;
+        $hadir_kurang = 0;
+
+        $result_mahasiswa->data_seek(0);
+        while ($mahasiswa = $result_mahasiswa->fetch_assoc()) {
+            $id = $mahasiswa['id'];
+            $persentase = $statistik_mahasiswa[$id]['persentase'];
+
+            if ($persentase >= 80) {
+                $hadir_baik++;
+            } elseif ($persentase >= 60) {
+                $hadir_cukup++;
+            } else {
+                $hadir_kurang++;
+            }
+        }
+
+        // Tampilkan statistik
+        $pdf->SetFillColor(240, 240, 240);
+        $pdf->Cell(60, 8, 'Total Mahasiswa', 1, 0, 'L', true);
+        $pdf->Cell(30, 8, $total_mahasiswa, 1, 1, 'C');
+
+        $pdf->Cell(60, 8, 'Kehadiran Baik (>=80%)', 1, 0, 'L', true);
+        $pdf->Cell(30, 8, $hadir_baik, 1, 0, 'C');
+        $pdf->Cell(40, 8, 'Persentase', 1, 0, 'L', true);
+        $pdf->Cell(30, 8, number_format(($hadir_baik / $total_mahasiswa) * 100, 2) . '%', 1, 1, 'C');
+
+        $pdf->Cell(60, 8, 'Kehadiran Cukup (60-79%)', 1, 0, 'L', true);
+        $pdf->Cell(30, 8, $hadir_cukup, 1, 0, 'C');
+        $pdf->Cell(40, 8, 'Persentase', 1, 0, 'L', true);
+        $pdf->Cell(30, 8, number_format(($hadir_cukup / $total_mahasiswa) * 100, 2) . '%', 1, 1, 'C');
+
+        $pdf->Cell(60, 8, 'Kehadiran Kurang (<60%)', 1, 0, 'L', true);
+        $pdf->Cell(30, 8, $hadir_kurang, 1, 0, 'C');
+        $pdf->Cell(40, 8, 'Persentase', 1, 0, 'L', true);
+        $pdf->Cell(30, 8, number_format(($hadir_kurang / $total_mahasiswa) * 100, 2) . '%', 1, 1, 'C');
+
+        // Tanda tangan
+        $pdf->Ln(15);
+        $pdf->SetFont('Arial', '', 11);
+        $pdf->Cell(120, 6, '', 0, 0);
+        $pdf->Cell(70, 6, 'Kota Teknologi, ' . date('d F Y'), 0, 1, 'C');
+        $pdf->Cell(120, 6, '', 0, 0);
+        $pdf->Cell(70, 6, 'Dosen Pengampu,', 0, 1, 'C');
+
+        $pdf->Ln(15); // Spasi untuk tanda tangan
+
+        $pdf->Cell(120, 6, '', 0, 0);
+        $pdf->SetFont('Arial', 'BU', 11);
+        $pdf->Cell(70, 6, $dosen['nama'], 0, 1, 'C');
+        $pdf->SetFont('Arial', '', 11);
+        $pdf->Cell(120, 6, '', 0, 0);
+        $pdf->Cell(70, 6, 'NIP: ' . (isset($dosen['nip']) ? $dosen['nip'] : '-'), 0, 1, 'C');
+
+        // Output PDF
+        $pdf->Output('D', $filename);
+        exit;
     }
 
-    $html .= '
-            </tbody>
-        </table>
-        
-        <div class="footer" style="margin-top: 30px; text-align: right;">
-            <p>Dicetak pada: ' . date('d-m-Y H:i:s') . '</p>
-        </div>
-    </body>
-    </html>';
-
-    // Generate PDF
+    // Panggil fungsi generate_pdf
     $filename = 'Laporan_Kehadiran_' . $info_kelas['nama'] . '_' . date('Ymd') . '.pdf';
-    generate_pdf($html, $filename);
+    generate_pdf('', $filename);
     exit;
 }
 ?>
